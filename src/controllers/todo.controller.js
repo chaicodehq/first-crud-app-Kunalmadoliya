@@ -1,80 +1,126 @@
-import { Todo } from "../models/todo.model.js";
+import Todo from "../models/todo.model.js";
 
-/**
- * TODO: Create a new todo
- * - Extract data from req.body
- * - Create todo in database
- * - Return 201 with created todo
- */
 export async function createTodo(req, res, next) {
   try {
-    // Your code here
+    const { title, completed, priority, tags, dueDate } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: { message: "Title is required" } });
+    }
+
+    const todo = await Todo.create({
+      title,
+      completed,
+      priority,
+      tags,
+      dueDate
+    });
+
+    return res.status(201).json(todo);
   } catch (error) {
-    next(error);
+    return res.status(400).json({ error: { message: error.message } });
   }
 }
 
-/**
- * TODO: List todos with pagination and filters
- * - Support query params: page, limit, completed, priority, search
- * - Default: page=1, limit=10
- * - Return: { data: [...], meta: { total, page, limit, pages } }
- */
 export async function listTodos(req, res, next) {
   try {
-    // Your code here
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const filter = {};
+
+    if (req.query.completed !== undefined) {
+      filter.completed = req.query.completed === "true";
+    }
+
+    if (req.query.priority) {
+      filter.priority = req.query.priority;
+    }
+
+    if (req.query.search) {
+      filter.title = { $regex: req.query.search, $options: "i" };
+    }
+
+    const total = await Todo.countDocuments(filter);
+
+    const data = await Todo.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    return res.status(200).json({
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
-    next(error);
+    return res.status(500).json({ error: { message: error.message } });
   }
 }
 
-/**
- * TODO: Get single todo by ID
- * - Return 404 if not found
- */
 export async function getTodo(req, res, next) {
   try {
-    // Your code here
+    const todo = await Todo.findById(req.params.id);
+
+    if (!todo) {
+      return res.status(404).json({ error: { message: "Not found" } });
+    }
+
+    return res.status(200).json(todo);
   } catch (error) {
-    next(error);
+    return res.status(500).json({ error: { message: error.message } });
   }
 }
 
-/**
- * TODO: Update todo by ID
- * - Use findByIdAndUpdate with { new: true, runValidators: true }
- * - Return 404 if not found
- */
 export async function updateTodo(req, res, next) {
   try {
-    // Your code here
+    const todo = await Todo.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!todo) {
+      return res.status(404).json({ error: { message: "Not found" } });
+    }
+
+    return res.status(200).json(todo);
   } catch (error) {
-    next(error);
+    return res.status(400).json({ error: { message: error.message } });
   }
 }
 
-/**
- * TODO: Toggle completed status
- * - Find todo, flip completed, save
- * - Return 404 if not found
- */
 export async function toggleTodo(req, res, next) {
   try {
-    // Your code here
+    const todo = await Todo.findById(req.params.id);
+
+    if (!todo) {
+      return res.status(404).json({ error: { message: "Not found" } });
+    }
+
+    todo.completed = !todo.completed;
+    await todo.save();
+
+    return res.status(200).json(todo);
   } catch (error) {
-    next(error);
+    return res.status(500).json({ error: { message: error.message } });
   }
 }
 
-/**
- * TODO: Delete todo by ID
- * - Return 204 (no content) on success
- * - Return 404 if not found
- */
 export async function deleteTodo(req, res, next) {
   try {
-    // Your code here
+    const todo = await Todo.findByIdAndDelete(req.params.id);
+
+    if (!todo) {
+      return res.status(404).json({ error: { message: "Not found" } });
+    }
+
+    return res.status(204).send();
   } catch (error) {
-    next(error);
+    return res.status(500).json({ error: { message: error.message } });
   }
 }
